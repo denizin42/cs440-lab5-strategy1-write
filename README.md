@@ -1,13 +1,28 @@
-# CS 440 Lab 5: Solving the 4x4 Vacuum Robot with Model-Free Tabular Q-Learning & All 4 Claude Code Features
+# CS 440 Lab 5 — Repository 1: Strategy 1 (Write) & Model-Free Tabular Q-Learning
 
 **Group 2 Members:** David Jablonski (`@denizin42`), Chris Mills (`@chris-mills03`), James Richardson (`@RichardsonJC`)  
-**Course:** CS 440 — Introduction to Artificial Intelligence (Fall 2026)
+**Course:** CS 440 — Introduction to Artificial Intelligence (Fall 2026)  
+**Companion Repository (Strategy 4: Isolate):** [`denizin42/cs440-lab5-strategy4-isolate`](https://github.com/denizin42/cs440-lab5-strategy4-isolate)
 
 ---
 
-## 1. Overview & Problem Specification
+## 1. Purpose of Repository 1: Context Engineering Strategy 1 (Write)
 
-In **Lab 4**, we scaffolded our Context Engineering repository for the **4x4 Vacuum Robot** where the transition model $T(s, a, s')$ and reward function $R(s, a, s')$ are **unknown**. In **Lab 5**, we solve this environment using **Model-Free Tabular Q-Learning** while integrating **all 4 Claude Code features** (**Hooks**, **MCP**, **Skills**, and **Sub-agents**).
+In the **Agentic AI & Context Engineering** lecture (Slides 21–28), **Strategy 1: Write** solves ephemeral context loss and prompt bloat by persisting knowledge to external files and dynamically loading only what is relevant to the current branch or query.
+
+### How This Repository Contrasts with Repository 2 (`strategy4-isolate`)
+| Architectural Layer | **Repo 1: `cs440-lab5-strategy1-write` (This Repo)** | **Repo 2: `cs440-lab5-strategy4-isolate`** |
+| :--- | :--- | :--- |
+| **Primary Context Strategy** | **Strategy 1: Write (Slides 21–28)** — Externalizing persistent memory, dynamic `@./context/*.md` imports, and procedural skills to disk. | **Strategy 4: Isolate (Slides 33–34)** — Splitting work across an Orchestrator, a Context Filter, and isolated sub-agents/processes to prevent Context Confusion. |
+| **Primary `CLAUDE.md` Role** | **3-Tier Persistent Memory** (`./CLAUDE.md`, `examples/user-memory-CLAUDE.md`, and `@./context/*.md` dynamic imports). | **Main Agent Orchestrator** decomposing work via `Task(description, prompt, subagent_type)` through a strict Context Filter. |
+| **Primary Hook Focus** | **`UserPromptSubmit` $\rightarrow$ `scripts/context-switcher.sh`**: Dynamically writes `@./context/*.md` imports based on Git branch and query keywords using a `grep -qxF` duplicate guard. | **`PreToolUse` $\rightarrow$ `scripts/prevent-main-commit.sh`**: Enforces an execution boundary blocking direct agent commits to `main`. |
+| **Primary Skill & MCP Focus** | **On-Demand Skills (`SKILL.md`)** + **MCP `@mcp.resource` & `@mcp.prompt`** to inject persisted hyperparameters and expert prompt templates. | **Scoped Sub-Agents (`code-reviewer`, `researcher`)** + **Process-Isolated MCP `@mcp.tool`** running 8,000 Q-learning episodes outside the LLM context window. |
+
+*(Note: Both repositories include all 4 Claude Code features—**Hooks, MCP, Skills, and Sub-agents**—and the complete 4x4 Vacuum Q-Learning solution so either repository can be graded standalone.)*
+
+---
+
+## 2. The Target Problem: 4x4 Vacuum Robot with Unknown $T$ and $R$
 
 ```text
 Row \ Col    0        1        2        3
@@ -21,46 +36,7 @@ Row \ Col    0        1        2        3
 - **Obstacle `X` at `(1, 1)`**: Impassable pillar; bumping into `(1, 1)` or an outer wall leaves the robot in place.
 - **Terminal Trap `-1` at `(3, 1)`**: Hazard yielding `-1.0` and ending the episode.
 - **Terminal Recharge Goal `+10` at `(3, 3)`**: Recharge station yielding `+10.0` and ending the episode.
-- **Stochastic Slip Dynamics (Hidden from Agent)**: Intended direction occurs with probability `0.80`, slipping $90^\circ$ left with `0.10`, and slipping $90^\circ$ right with `0.10`.
-
----
-
-## 2. Project Structure
-
-```text
-cs440-lab5-strategy1-write/
-├── README.md                                  # Project documentation, hyperparameters, and run instructions
-├── CLAUDE.md                                  # Project Memory, Orchestrator Task() rules, and @./context imports
-├── .mcp.json                                  # [Feature 2: MCP] Registers local FastMCP stdio server
-├── mcp_server.py                              # [Feature 2: MCP] @mcp.tool, @mcp.resource, and @mcp.prompt server
-├── .claude/
-│   ├── settings.json                          # [Feature 1: Hooks] Registers UserPromptSubmit -> context-switcher.sh
-│   ├── context/                               # Modular domain context echoed by context-switcher.sh
-│   │   ├── environment.md
-│   │   ├── q-learning.md
-│   │   └── exploration.md
-│   ├── skills/
-│   │   └── q-learning-audit/
-│   │       └── SKILL.md                       # [Feature 3: Skills] On-demand Bellman & encapsulation audit skill
-│   └── agents/                                # [Feature 4: Sub-Agents] YAML-configured isolated sub-agents
-│       ├── code-reviewer.md                   # Focused context: receives ONLY code diffs & encapsulation rules
-│       └── researcher.md                      # Broad context: receives ONLY RL & exploration math queries
-├── context/                                   # Dynamic @./context/*.md imports referenced by CLAUDE.md
-│   ├── environment.md
-│   ├── q-learning.md
-│   └── exploration.md
-├── examples/
-│   └── user-memory-CLAUDE.md                  # Reference example for ~/.claude/CLAUDE.md
-├── scripts/
-│   └── context-switcher.sh                    # [Feature 1: Hooks] Branch + prompt selector with grep -qxF guard
-├── src/
-│   ├── __init__.py
-│   ├── environment.py                         # Black-box 4x4 VacuumGridEnv simulator (encapsulates T and R)
-│   ├── agent.py                               # Hyperparameters & TabularQLearningAgent (TD update + exploration)
-│   └── q_learning.py                          # CLI runner printing utilities, Q-table, policy, and rollout logs
-└── tests/
-    └── test_lab5_progress.py                  # Automated pytest suite verifying all 5 parts of Lab 5
-```
+- **Why Tabular Q-Learning?** In Lab 3, $T(s, a, s')$ and $R(s, a, s')$ were known offline. Here, $T$ and $R$ are encapsulated inside `VacuumGridEnv`, so `TabularQLearningAgent` learns strictly from sampled transitions $(s, a, r, s', \text{done})$.
 
 ---
 
@@ -75,35 +51,63 @@ cs440-lab5-strategy1-write/
 
 ---
 
-## 4. How All 4 Claude Code Features Are Used
+## 4. Repository Structure
 
-1. **Hooks (`.claude/settings.json` + `scripts/context-switcher.sh`)**:
-   - Registers a `UserPromptSubmit` hook that inspects the active Git branch (`feature/environment*`, `feature/q-learning*`, `feature/exploration*`) and prompt keywords, dynamically injecting relevant context while guarding against duplicate `@./context/*.md` imports in `CLAUDE.md` via `grep -qxF`.
-2. **MCP (`.mcp.json` + `mcp_server.py`)**:
-   - Implements a `FastMCP` server (`VacuumRLMCP`) exposing all three MCP primitives from lecture:
-     - **Tools (`@mcp.tool`)**: `run_q_learning_experiment` and `read_context_doc`.
-     - **Resources (`@mcp.resource`)**: `vacuum://hyperparameters` and `vacuum://context`.
-     - **Prompts (`@mcp.prompt`)**: `/audit_hyperparameters` reusable verification template.
-3. **Skills (`.claude/skills/q-learning-audit/SKILL.md`)**:
-   - Provides an on-demand procedural checklist verifying model-free $T$/$R$ encapsulation, terminal state value boundary ($\max_{a'} Q(s_{\text{terminal}}, a') = 0.0$), and random tie-breaking.
-4. **Sub-Agents (`.claude/agents/code-reviewer.md` & `.claude/agents/researcher.md`)**:
-   - Isolates context using YAML frontmatter (`name`, `description`, `tools`, `model`) and orchestrator `Task()` delegation in `CLAUDE.md` so code review diffs and broad RL math queries never pollute a single monolithic context window.
+```text
+cs440-lab5-strategy1-write/
+├── README.md                                  # Strategy 1 (Write) documentation, hyperparameters, & CLI guide
+├── KANBAN_BOARD.md                            # Combined Group 2 Kanban board
+├── TEAM_ONBOARDING.md                         # Teammate clone & multi-agent setup instructions
+├── CLAUDE.md                                  # [Strategy 1] Project Memory + @./context/*.md dynamic imports
+├── .mcp.json                                  # [Feature 2: MCP] Registers local FastMCP stdio server
+├── mcp_server.py                              # [Feature 2: MCP] @mcp.resource, @mcp.prompt, & @mcp.tool server
+├── .githooks/
+│   └── pre-commit                             # Git pre-commit hook blocking direct commits to main
+├── .claude/
+│   ├── settings.json                          # [Feature 1: Hooks] UserPromptSubmit (context-switcher) + PreToolUse
+│   ├── context/                               # Modular domain context echoed by context-switcher.sh (Slide 27)
+│   │   ├── environment.md
+│   │   ├── q-learning.md
+│   │   └── exploration.md
+│   ├── skills/                                # [Feature 3: Skills] On-demand procedural skills (Slide 28)
+│   │   ├── github-kanban-sync/
+│   │   │   ├── SKILL.md
+│   │   │   └── scripts/sync-kanban.sh
+│   │   └── q-learning-audit/
+│   │       └── SKILL.md
+│   └── agents/                                # [Feature 4: Sub-Agents] YAML-configured sub-agents
+│       ├── code-reviewer.md
+│       └── researcher.md
+├── context/                                   # [Strategy 1] Dynamic @./context/*.md files (Slides 25–26)
+│   ├── environment.md
+│   ├── q-learning.md
+│   └── exploration.md
+├── examples/
+│   └── user-memory-CLAUDE.md                  # [Strategy 1] Reference example for ~/.claude/CLAUDE.md (Slide 23)
+├── scripts/
+│   ├── context-switcher.sh                    # [Strategy 1] Branch + prompt selector with grep -qxF guard
+│   ├── prevent-main-commit.sh                 # PreToolUse guard blocking direct main commits
+│   └── setup-teammate.sh                      # Multi-agent onboarding script (Claude, Cursor, Copilot, Gemini)
+├── src/
+│   ├── __init__.py
+│   ├── environment.py                         # Black-box 4x4 VacuumGridEnv simulator (encapsulates T and R)
+│   ├── agent.py                               # Hyperparameters & TabularQLearningAgent (TD update + exploration)
+│   └── q_learning.py                          # CLI runner printing utilities, Q-table, policy, and rollout logs
+└── tests/
+    └── test_lab5_progress.py                  # Automated 14-test pytest suite verifying all Lab 5 requirements
+```
 
 ---
 
 ## 5. How to Run the Solution & Tests
 
-### Run the Interactive Progress & Unit Test Suite
 ```bash
+# 1. One-time teammate & pre-commit hook setup:
+bash scripts/setup-teammate.sh --agent all
+
+# 2. Run the 14-test verification suite:
 pytest -v
-```
 
-### Run the Q-Learning Training, Policy Extraction, and Stochastic Simulation
-```bash
+# 3. Run the Q-Learning training, policy extraction, and stochastic rollout demo:
 python3 -m src.q_learning
-```
-
-### Run with Custom Hyperparameter Flags
-```bash
-python3 -m src.q_learning --living-reward -0.04 --gamma 0.90 --alpha 0.10 --epsilon 0.20 --episodes 8000
 ```

@@ -1,9 +1,24 @@
-# Project Context: CS 440 Lab 5 — Vacuum Robot Q-Learning (Strategy 1: Write & All 4 Code Features)
+# Project Context: CS 440 Lab 5 — Strategy 1: Write (Persistent Memory & Dynamic Context Injection)
 
-## 1. Architecture & Problem Overview
-This repository solves the **4x4 Vacuum Robot Reinforcement Learning** problem with unknown $T$ and $R$ using **Model-Free Tabular Q-Learning** and configures all 4 Claude Code features (**Hooks**, **MCP**, **Skills**, and **Sub-agents**).
+## 1. Strategy 1 (Write) Architecture Overview (Lecture Slides 21–28)
+This repository (`cs440-lab5-strategy1-write`) focuses on **Context Engineering Strategy 1: Write**—persisting domain knowledge, coding standards, and procedural skills **outside** the ephemeral conversation history and loading them dynamically on demand.
 
-### 4x4 Vacuum Grid World Specification
+### How Strategy 1 (Write) Is Implemented Here
+1. **Three-Tier Persistent Memory Hierarchy (Slides 21–23)**:
+   - **Tier 1 — Project Memory (`./CLAUDE.md`)**: Shared via Git; stores the 4x4 Vacuum Grid coordinates, unknown $T$/$R$ mandate, and PEP 484 coding standards.
+   - **Tier 2 — User Memory (`examples/user-memory-CLAUDE.md` $\rightarrow$ `~/.claude/CLAUDE.md`)**: Stores personal developer workflow preferences across sessions.
+   - **Tier 3 — Dynamic Context Imports (`@./context/*.md`)**: Modular markdown files (`environment.md`, `q-learning.md`, `exploration.md`) imported at the bottom of `CLAUDE.md`.
+2. **Hook-Driven Context Writing (`.claude/settings.json` + `scripts/context-switcher.sh` — Slides 24–27)**:
+   - Registers a `UserPromptSubmit` hook that checks the active Git branch (`feature/environment*`, `feature/q-learning*`, `feature/exploration*`) and prompt keywords.
+   - Uses an idempotent `grep -qxF` check before appending `@./context/*.md` references so repeated prompts never bloat `CLAUDE.md`.
+3. **On-Demand Procedural Skills (`.claude/skills/` — Slide 28)**:
+   - Stores specialized verification procedures (`q-learning-audit` and `github-kanban-sync`) on disk that Claude loads only when needed.
+4. **MCP Resources & Reusable Prompts (`mcp_server.py` — MCP Lecture Slides 20–28)**:
+   - Uses `@mcp.resource` (`vacuum://hyperparameters`, `vacuum://context`) to expose persisted config/docs like GET handlers and `@mcp.prompt` (`/audit_hyperparameters`) to ship tested prompt templates.
+
+---
+
+## 2. 4x4 Vacuum Grid World & Coding Standards (Project Memory — Slide 22)
 ```text
 Row \ Col    0        1        2        3
    0      [start]  [  0  ]  [  0  ]  [  0  ]
@@ -11,28 +26,14 @@ Row \ Col    0        1        2        3
    2      [  0  ]  [  0  ]  [  0  ]  [  0  ]
    3      [  0  ]  [ -1  ]  [  0  ]  [ +10 ]
 ```
-- **Start State `(0, 0)`**: Top-left corner (initial cell value `0`).
-- **Obstacle `X` at `(1, 1)`**: Impassable wall/pillar; attempting to move into `(1, 1)` or outside the 4x4 boundary keeps the robot in its current state.
-- **Terminal Trap `-1` at `(3, 1)`**: Hazard state yielding reward `-1.0` and ending the episode.
-- **Terminal Recharge Goal `+10` at `(3, 3)`**: Goal state yielding reward `+10.0` and ending the episode.
-- **Standard Cells `0`**: Non-terminal cells yielding the step/living reward (`living_reward`).
-
-### Domain Rules: Unknown $T$ and $R$ (Model-Free RL Mandate)
-- Unlike Lab 3 (Offline MDP Value Iteration), **we do NOT have the transition model $T(s, a, s')$ or the reward function $R(s, a, s')$**.
-- The learning agent (`TabularQLearningAgent` in `src/agent.py`) MUST NOT access private environment transition probabilities or reward tables directly. All learning happens through sampled transitions $(s, a, r, s', \text{done})$ from `VacuumGridEnv.step(action)`.
+- **Start State `(0, 0)`**, **Obstacle `X` at `(1, 1)`**, **Terminal Trap `-1` at `(3, 1)`**, **Terminal Recharge Goal `+10` at `(3, 3)`**.
+- **Unknown $T$ and $R$**: `TabularQLearningAgent` (`src/agent.py`) MUST NOT read private `VacuumGridEnv` transition weights or reward tables; it learns strictly from sampled tuples $(s, a, r, s', \text{done})$.
+- **Coding Standards**: Use Python 3.10+ explicit type annotations, descriptive variable names (`living_reward`, `discount_gamma`, `learning_rate_alpha`, `exploration_epsilon`), and deterministic seeded tests.
 
 ---
 
-## 2. Coding Standards (Strategy 1: Project Memory — Slide 22)
-- Use Python 3.10+ with explicit PEP 484 type annotations.
-- Use descriptive variable names (`learning_rate_alpha`, `discount_gamma`, `exploration_epsilon`, `living_reward`).
-- Keep environment simulation state strictly encapsulated from the learning agent.
-- Write deterministic unit tests using seeded random number generators before committing code.
-
----
-
-## 3. Sub-Agent Delegation Rules (Strategy 4: Context Isolation — Slides 33–34)
-You are the **Main Claude Agent (Orchestrator)**. To prevent **Context Confusion** and **Context Poisoning**, delegate specialized work through the **Context Filter** to the isolated sub-agents defined in `.claude/agents/`:
+## 3. Cross-Reference: Sub-Agent Delegation (Supported Alongside Strategy 1)
+To ensure all 4 Claude Code features work seamlessly in this repository, isolated sub-agents are also registered in `.claude/agents/`:
 
 ```javascript
 // ============================================================================
