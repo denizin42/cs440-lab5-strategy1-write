@@ -64,14 +64,14 @@ To ensure all 4 Claude Code features work seamlessly in this repository, isolate
 Task(
   description: "Code review",
   prompt: "Review this PR focusing only on security, performance, and model-free T/R encapsulation",
-  subagent_type: "TODO_SET_REVIEWER_SUBAGENT"
+  subagent_type: "code-reviewer"
 )
 
 // Research agent - broad architectural query (Slide 34)
 Task(
   description: "Research implementation",
   prompt: "Compare epsilon-greedy vs optimistic exploration f(u,n)=u+k/n for the 4x4 vacuum grid",
-  subagent_type: "TODO_SET_RESEARCHER_SUBAGENT"
+  subagent_type: "researcher"
 )
 ```
 
@@ -82,7 +82,7 @@ Task(
 TODO (Part 2C - Dynamic Context Imports, Slide 25):
 Uncomment or add the three `@./context/*.md` lines below so Claude Code dynamically
 loads the modular environment, Q-learning, and exploration context files:
-  @./context/environment.md
-  @./context/q-learning.md
-  @./context/exploration.md
 -->
+@./context/environment.md
+@./context/q-learning.md
+@./context/exploration.md

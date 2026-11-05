@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Resolved all pylint warnings in mcp_server.py and tests/test_lab5_progress.py (10.00/10)
+
 ### Added
+- Added GitHub Actions Pylint CI workflow (.github/workflows/pylint.yml)
 - Keep a Changelog (`CHANGELOG.md`) enforcement in `.githooks/pre-commit` and Claude `PreToolUse` hook.
 - Helper script `scripts/changelog-add.sh` for appending entries under `## [Unreleased]` and staging `CHANGELOG.md`.
 - Multi-agent teammate onboarding script (`scripts/setup-teammate.sh`) and `TEAM_ONBOARDING.md`.
